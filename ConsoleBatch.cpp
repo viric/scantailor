@@ -69,6 +69,7 @@
 
 #include <QMap>
 #include <QDomDocument>
+#include <QThreadPool>
 
 #include "ConsoleBatch.h"
 #include "CommandLine.h"
@@ -184,6 +185,24 @@ ConsoleBatch::createCompositeTask(
 	);
 }
 
+namespace
+{
+    class MyTask : public QRunnable
+    {
+        public:
+        MyTask(BackgroundTaskPtr &ptr)
+            :p(ptr)
+        {
+        }
+
+        virtual void run() {
+            (*p)();
+        }
+
+        private:
+        BackgroundTaskPtr p;
+    };
+}
 
 // process the image vector **images** and save output to **output_dir**
 void
@@ -211,6 +230,7 @@ ConsoleBatch::process()
 		if (cli.isVerbose())
 			std::cout << "Filter: " << (j+1) << "\n";
 
+        QThreadPool pool;
 		PageSequence page_sequence = m_ptrPages->toPageSequence(PAGE_VIEW);
 		setupFilter(j, page_sequence.selectAll());
 		for (unsigned i=0; i<page_sequence.numPages(); i++) {
@@ -218,8 +238,9 @@ ConsoleBatch::process()
 			if (cli.isVerbose())
 				std::cout << "\tProcessing: " << page.imageId().filePath().toAscii().constData() << "\n";
 			BackgroundTaskPtr bgTask = createCompositeTask(page, j);
-			(*bgTask)();
+            pool.start(new MyTask(bgTask));
 		}
+        pool.waitForDone();
 	}
 }
 
