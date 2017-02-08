@@ -45,6 +45,8 @@ public slots:
 	void performTask(BackgroundTaskPtr const& task);
 signals:
 	void taskResult(BackgroundTaskPtr const& task, FilterResultPtr const& result);
+protected:
+	virtual void customEvent(QEvent* event);
 private:
 	void emitTaskResult(BackgroundTaskPtr const& task, FilterResultPtr const& result);
 	
@@ -52,6 +54,7 @@ private:
 	class Dispatcher;
 	class PerformTaskEvent;
 	class TaskResultEvent;
+	class MyTask;
 	
 	std::auto_ptr<Impl> m_ptrImpl;
 };

@@ -128,6 +128,7 @@
 #include <QResource>
 #include <Qt>
 #include <QDebug>
+#include <QThreadPool>
 #include <algorithm>
 #include <vector>
 #include <stddef.h>
@@ -1184,12 +1185,17 @@ MainWindow::startBatchProcessing()
 	filterList->setBatchProcessingInProgress(true);
 	filterList->setEnabled(false);
 
-	BackgroundTaskPtr const task(m_ptrBatchQueue->takeForProcessing());
-	if (task) {
-		m_ptrWorkerThread->performTask(task);
-	} else {
-		stopBatchProcessing();
-	}
+    QThreadPool *pool = QThreadPool::globalInstance();
+    do
+    {
+        BackgroundTaskPtr const task(m_ptrBatchQueue->takeForProcessing());
+        if (task) {
+            m_ptrWorkerThread->performTask(task);
+        } else {
+            stopBatchProcessing();
+            break;
+        }
+    } while (pool->activeThreadCount() < pool->maxThreadCount());
 
 	page = m_ptrBatchQueue->selectedPage();
 	if (!page.isNull()) {
@@ -1276,10 +1282,15 @@ MainWindow::filterResult(BackgroundTaskPtr const& task, FilterResultPtr const& r
 			return;
 		}
 
-		BackgroundTaskPtr const task(m_ptrBatchQueue->takeForProcessing());
-		if (task) {
-			m_ptrWorkerThread->performTask(task);
-		}
+        QThreadPool *pool = QThreadPool::globalInstance();
+        do 
+        {
+            BackgroundTaskPtr const task(m_ptrBatchQueue->takeForProcessing());
+            if (task) {
+                m_ptrWorkerThread->performTask(task);
+            } else
+                break;
+        } while (pool->activeThreadCount() < pool->maxThreadCount());
 
 		PageInfo const page(m_ptrBatchQueue->selectedPage());
 		if (!page.isNull()) {

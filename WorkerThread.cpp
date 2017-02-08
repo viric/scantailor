@@ -20,6 +20,8 @@
 #include "ThreadPriority.h"
 #include "OutOfMemoryHandler.h"
 #include <QCoreApplication>
+#include <QThreadPool>
+#include <QRunnable>
 #include <QThread>
 #include <QEvent>
 #include <QSettings>
@@ -129,11 +131,43 @@ WorkerThread::shutdown()
 	m_ptrImpl.reset();
 }
 
+class WorkerThread::MyTask : public QRunnable
+{
+    public:
+    MyTask(WorkerThread *owner, const BackgroundTaskPtr &ptr)
+        :owner_(owner),task_(ptr)
+    {
+    }
+
+    virtual void run() {
+        FilterResultPtr const result((*task_)());
+        if (result) {
+            //owner_->emitTaskResult(task_, result);
+            QCoreApplication::postEvent(
+                owner_, new TaskResultEvent(task_, result)
+            );
+        }
+        //emit taskResult(task_, result);
+    }
+
+    private:
+    WorkerThread *owner_;
+    const BackgroundTaskPtr task_;
+};
+
 void
 WorkerThread::performTask(BackgroundTaskPtr const& task)
 {
-	if (m_ptrImpl.get()) {
-		m_ptrImpl->performTask(task);
+    QThreadPool *pool = QThreadPool::globalInstance();
+    //std::cout << "Threads: " << pool->maxThreadCount() << std::endl;
+    pool->start(new MyTask(this, task));
+}
+
+void
+WorkerThread::customEvent(QEvent* event)
+{
+	if (TaskResultEvent* evt = dynamic_cast<TaskResultEvent*>(event)) {
+		emitTaskResult(evt->task(), evt->result());
 	}
 }
 
