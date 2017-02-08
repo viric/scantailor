@@ -230,7 +230,7 @@ ConsoleBatch::process()
 		if (cli.isVerbose())
 			std::cout << "Filter: " << (j+1) << "\n";
 
-        QThreadPool pool;
+        QThreadPool *pool = QThreadPool::globalInstance();
 		PageSequence page_sequence = m_ptrPages->toPageSequence(PAGE_VIEW);
 		setupFilter(j, page_sequence.selectAll());
 		for (unsigned i=0; i<page_sequence.numPages(); i++) {
@@ -238,9 +238,9 @@ ConsoleBatch::process()
 			if (cli.isVerbose())
 				std::cout << "\tProcessing: " << page.imageId().filePath().toAscii().constData() << "\n";
 			BackgroundTaskPtr bgTask = createCompositeTask(page, j);
-            pool.start(new MyTask(bgTask));
+            pool->start(new MyTask(bgTask));
 		}
-        pool.waitForDone();
+        pool->waitForDone();
 	}
 }
 
